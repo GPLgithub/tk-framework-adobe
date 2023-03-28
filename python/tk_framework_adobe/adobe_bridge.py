@@ -10,15 +10,13 @@
 import os
 import functools
 import threading
-
-
-from sgtk.platform.qt import QtCore
-
-
 import json
 
+from .rpc import Communicator
 
-from rpc import Communicator
+import sgtk
+from sgtk.platform.qt import QtCore
+from tank_vendor import six
 
 
 ##########################################################################################
@@ -34,6 +32,7 @@ def timeout(seconds=5.0, error_message="Timed out."):
     :param float seconds: The timeout duration, in seconds.
     :param str error_message: The error message to raise once timed out.
     """
+
     def decorator(func):
         def _handle_timeout():
             raise RPCTimeoutError(error_message)
@@ -48,6 +47,7 @@ def timeout(seconds=5.0, error_message="Timed out."):
             return result
 
         return functools.wraps(func)(wrapper)
+
     return decorator
 
 
@@ -74,6 +74,7 @@ class MessageEmitter(QtCore.QObject):
         document by the RPC server. The string value is the path to the new
         active document, or an empty string if the active document is unsaved.
     """
+
     logging_received = QtCore.Signal(str, str)
     command_received = QtCore.Signal(int)
     run_tests_request_received = QtCore.Signal()
@@ -85,8 +86,9 @@ class AdobeBridge(Communicator):
     """
     Bridge layer between the Adobe product and Shotgun Toolkit.
     """
+
     # Backwards compatibility added to support tk-photoshop environment vars.
-    # https://support.shotgunsoftware.com/hc/en-us/articles/219039748-Photoshop#If%20the%20engine%20does%20not%20start
+    # https://community.shotgridsoftware.com/t/adobe-engine-crashing-on-long-operations/8329
     SHOTGUN_ADOBE_RESPONSE_TIMEOUT = os.environ.get(
         "SHOTGUN_ADOBE_RESPONSE_TIMEOUT",
         os.environ.get(
@@ -210,8 +212,8 @@ class AdobeBridge(Communicator):
             except Exception:
                 path = None
 
-            if isinstance(path, unicode):
-                path = path.encode("utf-8")
+            if path is not None:
+                path = six.ensure_str(path)
 
         return path
 
@@ -223,10 +225,7 @@ class AdobeBridge(Communicator):
         :param msg: The message to log.
         """
 
-        log_data = {
-            "level": level,
-            "msg": msg
-        }
+        log_data = {"level": level, "msg": msg}
 
         # NOTE: do not log in this method
         json_log_data = json.dumps(log_data)
@@ -293,6 +292,25 @@ class AdobeBridge(Communicator):
         self.logger.debug("Sending context about to change message.")
         self._io.emit("context_about_to_change")
 
+    def export_image(self, doc, file_path, settings):
+        """
+        Export the document as an image to the filesystem.
+
+        :param doc:  The document to export
+        :param file_path:  Path to the image we want to export the document to
+        :param settings:  Dictionary of export settings we want to use to create the image
+        """
+
+        opts = self.ExportOptionsSaveForWeb()
+
+        for setting_name, setting_value in settings.items():
+            if setting_name == "format":
+                opts.format = getattr(self.SaveDocumentType, setting_value)
+            else:
+                setattr(opts, setting_name, setting_value)
+
+        doc.exportDocument(self.File(file_path), self.ExportType.SAVEFORWEB, opts)
+
     def save_as(self, doc, file_path):
         """
         Performs a save-as operation on the given document, saving to the
@@ -357,7 +375,7 @@ class AdobeBridge(Communicator):
                          is disregarded.
         """
         self.logger.debug("Emitting active_document_changed signal.")
-        response = json.loads(response)
+        response = sgtk.util.json.loads(response)
         self.active_document_changed.emit(response.get("active_document_path"))
 
     def _forward_command(self, response):
@@ -369,7 +387,7 @@ class AdobeBridge(Communicator):
                          that is the unique id of the command to be called.
         """
         self.logger.debug("Emitting command_received signal.")
-        self.command_received.emit(int(json.loads(response)))
+        self.command_received.emit(int(sgtk.util.json.loads(response)))
 
     def _forward_logging(self, response):
         """
@@ -381,7 +399,7 @@ class AdobeBridge(Communicator):
                          level of the logging message, and the message itself,
                          respectively.
         """
-        response = json.loads(response)
+        response = sgtk.util.json.loads(response)
         self.logging_received.emit(
             response.get("level"),
             response.get("message"),
@@ -430,6 +448,5 @@ class RPCTimeoutError(Exception):
     """
     Raised when an RPC event times out.
     """
+
     pass
-
-

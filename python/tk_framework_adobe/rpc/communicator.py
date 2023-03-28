@@ -7,7 +7,6 @@
 # By accessing, using, copying or modifying this work you indicate your
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights
 # not expressly granted therein are reserved by Shotgun Software Inc.
-import json
 import threading
 import sys
 import os.path
@@ -22,19 +21,22 @@ sys.path.insert(
     0,
     os.path.normpath(
         os.path.join(
-            os.path.dirname(__file__), # ./python/tk_framework_adobe/rpc
-            os.pardir,                      # ./python/tk_framework_adobe
-            os.pardir,                      # ./python
-            os.pardir,                      # .
-            "pkgs.zip",                # ./pkgs.zip
+            os.path.dirname(__file__),  # ./python/tk_framework_adobe/rpc
+            os.pardir,  # ./python/tk_framework_adobe
+            os.pardir,  # ./python
+            os.pardir,  # .
+            "pkgs.zip",  # ./pkgs.zip
         )
-    )
+    ),
 )
 
 
-import socketIO_client.exceptions
-from socketIO_client import SocketIO
+import socketIO_client_nexus.exceptions
+from socketIO_client_nexus import SocketIO
 from .proxy import ProxyScope, ProxyWrapper, ClassInstanceProxyWrapper
+
+import sgtk
+from tank_vendor import six
 
 
 class Communicator(object):
@@ -44,6 +46,7 @@ class Communicator(object):
     a server that the communicator connects to at instantiation
     time. Basic RPC calls are also implemented.
     """
+
     _RESULTS = dict()
     _UID = 0
     _LOCK = threading.Lock()
@@ -51,7 +54,15 @@ class Communicator(object):
     _REGISTRY = dict()
     _COMMAND_REGISTRY = dict()
 
-    def __init__(self, port=8090, host="localhost", disconnect_callback=None, logger=None, network_debug=False, event_processor=None):
+    def __init__(
+        self,
+        port=8090,
+        host="localhost",
+        disconnect_callback=None,
+        logger=None,
+        network_debug=False,
+        event_processor=None,
+    ):
         """
         Constructor. Rather than instantiating the Communicator directly,
         it is advised to make use of the get_or_create() classmethod as
@@ -226,7 +237,7 @@ class Communicator(object):
             while wait >= (time.time() - start) or single_loop:
                 try:
                     self._io._process_packets()
-                except socketIO_client.exceptions.TimeoutError:
+                except socketIO_client_nexus.exceptions.TimeoutError:
                     # Timeouts here are not a problem. It can be something
                     # as simple as the server being busy and not responding
                     # quickly enough, in which case subsequent attempts will
@@ -290,12 +301,12 @@ class Communicator(object):
                 msg = "Failed to call method %s bound to %s with arguments %s" % (
                     proxy_object,
                     parent,
-                    params[1:], # The first item is the UID, which isn't relevant.
+                    params[1:],  # The first item is the UID, which isn't relevant.
                 )
             else:
                 msg = "Failed to call function %s with arguments %s" % (
                     proxy_object,
-                    params[1:], # The first item is the UID, which isn't relevant.
+                    params[1:],  # The first item is the UID, which isn't relevant.
                 )
             raise RuntimeError(msg)
 
@@ -377,10 +388,7 @@ class Communicator(object):
         """
         self.log_network_debug("Sending a get message using rpc_get...")
         self.log_network_debug(
-            "Getting property %s from object UID %s" % (
-                property_name,
-                proxy_object.uid
-            )
+            "Getting property %s from object UID %s" % (property_name, proxy_object.uid)
         )
 
         try:
@@ -393,7 +401,8 @@ class Communicator(object):
             )
         except RuntimeError:
             raise AttributeError(
-                "Failed to get property %s of object %s" % (
+                "Failed to get property %s of object %s"
+                % (
                     property_name,
                     proxy_object,
                 )
@@ -411,10 +420,7 @@ class Communicator(object):
         """
         self.log_network_debug("Sending a get_index message using rpc_get_index...")
         self.log_network_debug(
-            "Getting index %s of object UID %s" % (
-                index,
-                proxy_object.uid
-            )
+            "Getting index %s of object UID %s" % (index, proxy_object.uid)
         )
 
         try:
@@ -426,7 +432,8 @@ class Communicator(object):
             )
         except RuntimeError:
             raise IndexError(
-                "Failed to get index %d of list %s" % (
+                "Failed to get index %d of list %s"
+                % (
                     index,
                     proxy_object,
                 )
@@ -468,11 +475,8 @@ class Communicator(object):
         """
         self.log_network_debug("Sending a set message using rpc_set...")
         self.log_network_debug(
-            "Setting property %s to %s for object UID %s" % (
-                property_name,
-                value,
-                proxy_object.uid
-            )
+            "Setting property %s to %s for object UID %s"
+            % (property_name, value, proxy_object.uid)
         )
 
         try:
@@ -484,7 +488,8 @@ class Communicator(object):
             )
         except RuntimeError:
             raise AttributeError(
-                "Unable to set property %s to value %s on object %s" % (
+                "Unable to set property %s to value %s on object %s"
+                % (
                     property_name,
                     value,
                     proxy_object,
@@ -588,19 +593,26 @@ class Communicator(object):
         """
         self.log_network_debug("Handling RPC response...")
 
-        result = json.loads(response)
+        result = sgtk.util.json.loads(response)
 
         uid = result["id"]
         self.log_network_debug("Response UID is %s" % uid)
 
         try:
-            self._RESULTS[uid] = self._ensure_utf8(json.loads(result["result"]))
+            self._RESULTS[uid] = sgtk.util.json.loads(result["result"])
         except (TypeError, ValueError):
-            self._RESULTS[uid] = self._ensure_utf8(result.get("result"))
+            # TODO: This feels like it would cause an error later if the result is a string. We need
+            #  further clarification on what this catch is trying to achieve.
+            result = result.get("result")
+            if result is six.text_type():
+                result = six.ensure_str(result)
+            self._RESULTS[uid] = result
         except KeyError:
             if not self._response_logging_silenced:
                 self.logger.error("RPC command (UID=%s) failed!" % uid)
-                self.logger.debug("Failed command payload: %s" % self._COMMAND_REGISTRY[uid])
+                self.logger.debug(
+                    "Failed command payload: %s" % self._COMMAND_REGISTRY[uid]
+                )
                 self.logger.debug("Failure raw response: %s" % response)
                 self.logger.debug("Failure results: %s" % result)
             # This is all happening with a deal of asynchronicity, so we
@@ -608,24 +620,7 @@ class Communicator(object):
             # but let the listener decide how and when to raise.
             self._RESULTS[uid] = RuntimeError()
 
-        self.log_network_debug(
-            "Processed response data: %s" % self._RESULTS[uid]
-        )
-
-    def _ensure_utf8(self, in_string):
-        """
-        If the given string is unicode, it will be returned as utf-8 encoded
-        string.
-
-        :param str in_string: The input string.
-
-        :returns: A utf-8 encoded string.
-        :rtype: str
-        """
-        if isinstance(in_string, unicode):
-            in_string = in_string.encode("utf-8")
-
-        return in_string
+        self.log_network_debug("Processed response data: %s" % self._RESULTS[uid])
 
     def _wait_for_response(self, uid):
         """
@@ -682,14 +677,15 @@ class Communicator(object):
             elif isinstance(param, ProxyWrapper):
                 processed.append(param.data)
             else:
-                if isinstance(param, basestring) and not isinstance(param, unicode):
-                    # ensure the strings are unicode
-                    param = param.decode("utf-8")
+                if isinstance(param, six.string_types):
+                    param = six.ensure_str(param)
                 processed.append(param)
 
         return processed
 
-    def __run_rpc_command(self, method, proxy_object, params, wrapper_class, attach_parent=None):
+    def __run_rpc_command(
+        self, method, proxy_object, params, wrapper_class, attach_parent=None
+    ):
         """
         Emits the requested JSON-RPC method via socket.io and handles
         the returned result when it arrives.
@@ -733,4 +729,6 @@ class Communicator(object):
             # in case the requested attribute doesn't exist
             # we will try to generate a new instance of the
             # requested name
-            return ClassInstanceProxyWrapper({"__class__": name, "__uniqueid": -1}, self)
+            return ClassInstanceProxyWrapper(
+                {"__class__": name, "__uniqueid": -1}, self
+            )

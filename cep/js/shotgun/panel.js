@@ -47,6 +47,8 @@ sg_panel.Panel = new function() {
 
     var _log_file_path = undefined;
 
+    var _support_url = "https://knowledge.autodesk.com/contact-support";
+
     // ---- public methods
 
     this.clear = function() {
@@ -71,7 +73,7 @@ sg_panel.Panel = new function() {
 
         _show_info(true);
         _set_info(
-            "Loading Shotgun Integration..."
+            "Loading ShotGrid Integration..."
         );
     };
 
@@ -104,7 +106,7 @@ sg_panel.Panel = new function() {
                     <tr>
                       <td id='sg_unknown_context_details'>
                         The currently active file can't be associated with a
-                        Shotgun context. Try switching to another file or
+                        ShotGrid context. Try switching to another file or
                         restarting ${app_display_name}.
                       </td>
                     </tr>
@@ -179,20 +181,6 @@ sg_panel.Panel = new function() {
         if (fav_header_div) {
             fav_header_div.innerHTML = "Run a command";
         }
-    };
-
-    // Open an email in default email client.
-    this.email_support = function(subject, body) {
-
-        const mailto_url = `mailto:support@shotgunsoftware.com?subject=${subject}&body=${body}`;
-
-        sg_logging.debug("Emailing support: " + mailto_url);
-
-        _clear_info();
-        _set_progress_info(100, "Composing SG support email...");
-        setTimeout(_clear_info, 2000);
-
-        this.open_external_url(mailto_url);
     };
 
     // Setup the Shotgun integration within the app.
@@ -531,7 +519,7 @@ sg_panel.Panel = new function() {
                               Checked="false"/>';
 
             flyout_xml += '<MenuItem Id="sg_dev_reload" \
-                              Label="Reload Shotgun Extension" \
+                              Label="Reload ShotGrid Extension" \
                               Enabled="true" \
                               Checked="false"/>';
         }
@@ -668,10 +656,10 @@ sg_panel.Panel = new function() {
             contents_html +=
                 `<br>
                 If you encounter this problem consistently or have any other
-                questions, please send the following error and a description
-                of the steps to reproduce the problem to
-                <a href='#' onClick='sg_panel.Panel.email_support(\"${subject}\", \"${body}\")'>
-                  support@shotgunsoftware.com
+                questions, please send us the following error and a description
+                of the steps to reproduce the problem via
+                <a href='#' onClick='sg_panel.Panel.open_external_url(\"${_support_url}\")'>
+                  ${_support_url}
                 </a>.
                 <br><br>
                 <center>
@@ -681,9 +669,9 @@ sg_panel.Panel = new function() {
             contents_html +=
                 `<br>
                   If you encounter this problem consistently or have any other
-                  questions, please send the steps to reproduce to
-                  <a href='#' onClick='sg_panel.Panel.email_support(\"${subject}\", \"${body}\")'>
-                    support@shotgunsoftware.com
+                  questions, please send us the steps to reproduce via
+                  <a href='#' onClick='sg_panel.Panel.open_external_url(\"${_support_url}\")'>
+                    ${_support_url}
                   </a>.`;
         }
 
@@ -764,9 +752,9 @@ sg_panel.Panel = new function() {
             ${app_display_name} to load the Shotgun integration.
             <br><br>
             If you believe the error is incorrect or you have any further
-            questions, please contact
-            <a href='#' onClick='sg_panel.Panel.email_support(\"${subject}\", \"${body}\")'>
-              support@shotgunsoftware.com
+            questions, please contact our support team via
+            <a href='#' onClick='sg_panel.Panel.open_external_url(\"${_support_url}\")'>
+                ${_support_url}
             </a>.`;
 
         contents_html = "<div class='sg_container'>" + contents_html + "</div>";
