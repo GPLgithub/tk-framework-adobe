@@ -8,15 +8,15 @@ rem if you want to use tk-core from a non default bundle-cache location,
 rem uncomment the following line and set your path accordingly.
 rem set "TKCORE_FOLDER="
 
-set "ZXP_SIGN_TOOL=c:/unix/ZXPSignCmd.exe"
+set "ZXP_SIGN_TOOL="
 set "PYTHON_EXE=python"
 
 rem DO NOT COMMIT THE FOLLOWING LINES TO THE REPO
 rem set this to your certificate file, that you created / will create
-set "CERTIFICATE_FILE=c:/Users/oleg/cert/vintata_adobe_cert.p12"
+set "CERTIFICATE_FILE="
 rem set this to the password that you chose/want to chose for your certificate file
 rem the following options are needed, when you want to create a new certificate
-set "CERTIFICATE_PASS=abc123"
+set "CERTIFICATE_PASS="
 set "CERT_COUNTRY="
 set "CERT_STATE="
 set "CERT_ORG="

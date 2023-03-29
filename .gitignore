@@ -9,3 +9,6 @@ Thumbs.db
 *.rnd
 *.swp
 pkgs/*
+
+dev/env.mk
+dev/env.cmd
